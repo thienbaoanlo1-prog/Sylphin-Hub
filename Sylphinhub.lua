@@ -1,27 +1,58 @@
--- Auto Farm Egg + Steal Speed Slider для Steal An Egg (Roblox)
--- Автоматически собирает ближайшие яйца + регулировка скорости кражи
--- Загрузка: скопировать в экзекьютор и выполнить
+-- Диагностика: почему меню не появляется
+-- Проблема: ошибка в одной из строк выше ломает весь скрипт
+-- Решение: безопасная версия с обработкой ошибок и печатью в консоль
+
+-- ============================================================
+-- ШАГ 1: ПРОВЕРКА ЭКЗЕКЬЮТОРА
+-- ============================================================
+print("[EggFarm] Запуск...")
+
+if not game then
+    warn("[EggFarm] game не найден. Запустите в Roblox.")
+    return
+end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
+if not LocalPlayer then
+    warn("[EggFarm] LocalPlayer не найден. Подождите загрузки.")
+    return
+end
+print("[EggFarm] Экзекьютор OK. Игрок: " .. LocalPlayer.Name)
+
 -- ============================================================
--- КОНФИГ
+-- ШАГ 2: ОПРЕДЕЛЕНИЕ РОДИТЕЛЯ ДЛЯ GUI
+-- ============================================================
+local GuiParent
+local function GetGuiParent()
+    local success, result = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    if success and result then return result end
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+GuiParent = GetGuiParent()
+print("[EggFarm] GUI родитель: " .. GuiParent:GetFullName())
+
+-- ============================================================
+-- ШАГ 3: КОНФИГ
 -- ============================================================
 local Config = {
     AutoFarm = false,
-    StealSpeed = 20,     -- studs/sec (регулируется слайдером)
-    MoveSpeed = 16,      -- обычная скорость ходьбы
-    TeleportMode = "TP", -- "TP" / "Tween" / "Walk"
-    EggRadius = 500,     -- радиус поиска яиц
-    RarityFilter = {}    -- пусто = все яйца
+    StealSpeed = 20,
+    MoveSpeed = 16,
+    TeleportMode = "TP",
+    EggRadius = 500,
+    RarityFilter = {}
 }
 
 -- ============================================================
--- ПОИСК REMOTE ДЛЯ КРАЖИ
+-- ШАГ 4: ПОИСК REMOTE
 -- ============================================================
 local function FindRemote(name)
     for _, v in pairs(ReplicatedStorage:GetDescendants()) do
@@ -33,10 +64,10 @@ local function FindRemote(name)
 end
 
 local StealRemote = FindRemote("StealEgg") or FindRemote("Steal") or FindRemote("PickupEgg") or FindRemote("CollectEgg")
-local HatchRemote = FindRemote("HatchEgg") or FindRemote("Hatch")
+print("[EggFarm] StealRemote: " .. (StealRemote and StealRemote.Name or "не найден"))
 
 -- ============================================================
--- ФУНКЦИИ ЯИЦ
+-- ШАГ 5: ФУНКЦИИ ЯИЦ
 -- ============================================================
 local function GetEggs()
     local eggs = {}
@@ -50,14 +81,14 @@ local function GetEggs()
     return eggs
 end
 
-local function GetEggRarity(egg)
-    return egg:GetAttribute("Rarity") or egg:GetAttribute("RarityName") or "Common"
-end
-
 local function GetEggPosition(egg)
     if egg.PrimaryPart then return egg.PrimaryPart.Position end
     local part = egg:FindFirstChildWhichIsA("BasePart")
     return part and part.Position or nil
+end
+
+local function GetEggRarity(egg)
+    return egg:GetAttribute("Rarity") or "Common"
 end
 
 local function FilterEgg(egg)
@@ -84,40 +115,27 @@ local function GetNearestEgg()
     return best
 end
 
--- ============================================================
--- ДВИЖЕНИЕ К ЯЙЦУ (с регулируемой скоростью)
--- ============================================================
 local function MoveToEgg(egg)
     local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
     local targetPos = GetEggPosition(egg)
-    if not targetPos then return false end
-
+    if not targetPos then return end
     if Config.TeleportMode == "TP" then
         hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-        return true
     elseif Config.TeleportMode == "Tween" then
         local dist = (targetPos - hrp.Position).Magnitude
-        local duration = dist / Config.StealSpeed
-        local tween = game:GetService("TweenService"):Create(
-            hrp,
-            TweenInfo.new(duration, Enum.EasingStyle.Linear),
-            {CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))}
-        )
-        tween:Play()
-        tween.Completed:Wait()
-        return true
+        local tw = TweenService:Create(hrp, TweenInfo.new(dist / Config.StealSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))})
+        tw:Play()
+        tw.Completed:Wait()
     elseif Config.TeleportMode == "Walk" then
         char.Humanoid.WalkSpeed = Config.StealSpeed
         char.Humanoid:MoveTo(targetPos)
-        return true
     end
-    return false
 end
 
 -- ============================================================
--- ОСНОВНОЙ ЦИКЛ AUTO-FARM
+-- ШАГ 6: ОСНОВНОЙ ЦИКЛ
 -- ============================================================
 task.spawn(function()
     while true do
@@ -126,20 +144,14 @@ task.spawn(function()
             local egg = GetNearestEgg()
             if egg then
                 MoveToEgg(egg)
-                -- Попытка вызвать Remote для кражи
                 if StealRemote then
-                    pcall(function()
-                        StealRemote:FireServer(egg)
-                    end)
+                    pcall(function() StealRemote:FireServer(egg) end)
                 end
-                -- Проверка: если яйцо исчезло — продолжаем
-                task.wait(0.05)
             end
         end
     end
 end)
 
--- Поддержание скорости ходьбы
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("Humanoid") then return end
@@ -151,240 +163,73 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
--- GUI
+-- ШАГ 7: СОЗДАНИЕ GUI (с защитой от ошибок)
 -- ============================================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EggFarmSpeed"
-ScreenGui.Parent = game:GetService("CoreGui")
-ScreenGui.ResetOnSpawn = false
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 340, 0, 280)
-MainFrame.Position = UDim2.new(0.5, -170, 0.5, -140)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
-
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 40)
-TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = MainFrame
-Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 12)
-
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Text = "Egg Farm + Steal Speed"
-TitleLabel.Size = UDim2.new(1, -60, 1, 0)
-TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
-TitleLabel.TextSize = 15
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Parent = TitleBar
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Text = "✕"
-CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-CloseBtn.Position = UDim2.new(1, -35, 0, 6)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-CloseBtn.TextSize = 14
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.BorderSizePixel = 0
-CloseBtn.Parent = TitleBar
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
--- Кнопка AUTO FARM
-local FarmBtn = Instance.new("TextButton")
-FarmBtn.Size = UDim2.new(1, -30, 0, 35)
-FarmBtn.Position = UDim2.new(0, 15, 0, 50)
-FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-FarmBtn.Text = "▶ START AUTO FARM"
-FarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-FarmBtn.TextSize = 13
-FarmBtn.Font = Enum.Font.GothamBold
-FarmBtn.BorderSizePixel = 0
-FarmBtn.Parent = MainFrame
-Instance.new("UICorner", FarmBtn).CornerRadius = UDim.new(0, 8)
-FarmBtn.MouseButton1Click:Connect(function()
-    Config.AutoFarm = not Config.AutoFarm
-    if Config.AutoFarm then
-        FarmBtn.Text = "■ STOP AUTO FARM"
-        FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-    else
-        FarmBtn.Text = "▶ START AUTO FARM"
-        FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+local success, err = pcall(function()
+    -- Удаляем старую версию, если есть
+    if GuiParent:FindFirstChild("EggFarmSpeed") then
+        GuiParent.EggFarmSpeed:Destroy()
     end
-end)
 
--- Слайдер Steal Speed
-local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Text = "Steal Speed: " .. Config.StealSpeed .. " studs/s"
-SpeedLabel.Size = UDim2.new(1, -30, 0, 20)
-SpeedLabel.Position = UDim2.new(0, 15, 0, 95)
-SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-SpeedLabel.TextSize = 12
-SpeedLabel.Font = Enum.Font.Gotham
-SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
-SpeedLabel.Parent = MainFrame
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "EggFarmSpeed"
+    ScreenGui.Parent = GuiParent
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local SpeedBar = Instance.new("Frame")
-SpeedBar.Size = UDim2.new(1, -30, 0, 8)
-SpeedBar.Position = UDim2.new(0, 15, 0, 120)
-SpeedBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-SpeedBar.BorderSizePixel = 0
-SpeedBar.Parent = MainFrame
-Instance.new("UICorner", SpeedBar).CornerRadius = UDim.new(1, 0)
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 340, 0, 280)
+    MainFrame.Position = UDim2.new(0.5, -170, 0.5, -140)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Parent = ScreenGui
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
-local SpeedFill = Instance.new("Frame")
-SpeedFill.Size = UDim2.new((Config.StealSpeed - 1) / 499, 0, 1, 0) -- 1..500
-SpeedFill.BackgroundColor3 = Color3.fromRGB(150, 100, 255)
-SpeedFill.BorderSizePixel = 0
-SpeedFill.Parent = SpeedBar
-Instance.new("UICorner", SpeedFill).CornerRadius = UDim.new(1, 0)
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Size = UDim2.new(1, 0, 0, 40)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    TitleBar.BorderSizePixel = 0
+    TitleBar.Parent = MainFrame
+    Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 12)
 
-local dragging = false
-SpeedBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local rel = math.clamp((input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X, 0, 1)
-        SpeedFill.Size = UDim2.new(rel, 0, 1, 0)
-        local val = math.floor(1 + (500 - 1) * rel)
-        Config.StealSpeed = val
-        SpeedLabel.Text = "Steal Speed: " .. val .. " studs/s"
-        -- Мгновенно применяем к персонажу при Walk-режиме
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") and Config.TeleportMode == "Walk" then
-            char.Humanoid.WalkSpeed = val
-        end
-    end
-end)
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Text = "Egg Farm + Steal Speed"
+    TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+    TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+    TitleLabel.TextSize = 15
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = TitleBar
 
--- Выбор режима движения
-local ModeLabel = Instance.new("TextLabel")
-ModeLabel.Text = "Режим движения:"
-ModeLabel.Size = UDim2.new(1, -30, 0, 20)
-ModeLabel.Position = UDim2.new(0, 15, 0, 145)
-ModeLabel.BackgroundTransparency = 1
-ModeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-ModeLabel.TextSize = 12
-ModeLabel.Font = Enum.Font.Gotham
-ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
-ModeLabel.Parent = MainFrame
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Text = "✕"
+    CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+    CloseBtn.Position = UDim2.new(1, -35, 0, 6)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+    CloseBtn.TextSize = 14
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.BorderSizePixel = 0
+    CloseBtn.Parent = TitleBar
+    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+    CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
-local ModeButtons = {}
-local function CreateModeButton(name, xPos, mode)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 95, 0, 30)
-    btn.Position = UDim2.new(0, xPos, 0, 170)
-    btn.BackgroundColor3 = Config.TeleportMode == mode and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(50, 50, 60)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 12
-    btn.Font = Enum.Font.Gotham
-    btn.BorderSizePixel = 0
-    btn.Parent = MainFrame
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    table.insert(ModeButtons, {btn = btn, mode = mode})
-    btn.MouseButton1Click:Connect(function()
-        Config.TeleportMode = mode
-        for _, m in pairs(ModeButtons) do
-            m.btn.BackgroundColor3 = (m.mode == mode) and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(50, 50, 60)
-        end
-    end)
-end
-CreateModeButton("TP", 15, "TP")
-CreateModeButton("Tween", 115, "Tween")
-CreateModeButton("Walk", 215, "Walk")
-
--- Радиус поиска
-local RadiusLabel = Instance.new("TextLabel")
-RadiusLabel.Text = "Радиус поиска: " .. Config.EggRadius .. " studs"
-RadiusLabel.Size = UDim2.new(1, -30, 0, 20)
-RadiusLabel.Position = UDim2.new(0, 15, 0, 215)
-RadiusLabel.BackgroundTransparency = 1
-RadiusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-RadiusLabel.TextSize = 12
-RadiusLabel.Font = Enum.Font.Gotham
-RadiusLabel.TextXAlignment = Enum.TextXAlignment.Left
-RadiusLabel.Parent = MainFrame
-
-local RadiusBar = Instance.new("Frame")
-RadiusBar.Size = UDim2.new(1, -30, 0, 8)
-RadiusBar.Position = UDim2.new(0, 15, 0, 240)
-RadiusBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-RadiusBar.BorderSizePixel = 0
-RadiusBar.Parent = MainFrame
-Instance.new("UICorner", RadiusBar).CornerRadius = UDim.new(1, 0)
-
-local RadiusFill = Instance.new("Frame")
-RadiusFill.Size = UDim2.new(Config.EggRadius / 2000, 0, 1, 0)
-RadiusFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-RadiusFill.BorderSizePixel = 0
-RadiusFill.Parent = RadiusBar
-Instance.new("UICorner", RadiusFill).CornerRadius = UDim.new(1, 0)
-
-local draggingR = false
-RadiusBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingR = true
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingR = false
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if draggingR and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local rel = math.clamp((input.Position.X - RadiusBar.AbsolutePosition.X) / RadiusBar.AbsoluteSize.X, 0, 1)
-        RadiusFill.Size = UDim2.new(rel, 0, 1, 0)
-        local val = math.floor(100 + (2000 - 100) * rel)
-        Config.EggRadius = val
-        RadiusLabel.Text = "Радиус поиска: " .. val .. " studs"
-    end
-end)
-
--- Инфо-строка
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Text = "Найдено яиц: 0 | Remote: " .. (StealRemote and StealRemote.Name or "не найден")
-InfoLabel.Size = UDim2.new(1, -30, 0, 20)
-InfoLabel.Position = UDim2.new(0, 15, 0, 255)
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.TextColor3 = Color3.fromRGB(120, 220, 120)
-InfoLabel.TextSize = 11
-InfoLabel.Font = Enum.Font.Gotham
-InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
-InfoLabel.Parent = MainFrame
-
--- Обновление счётчика яиц
-task.spawn(function()
-    while true do
-        task.wait(1)
-        local count = #GetEggs()
-        InfoLabel.Text = "Найдено яиц: " .. count .. " | Remote: " .. (StealRemote and StealRemote.Name or "не найден")
-    end
-end)
-
--- Хоткей: RightShift — вкл/выкл Auto Farm
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
+    local FarmBtn = Instance.new("TextButton")
+    FarmBtn.Size = UDim2.new(1, -30, 0, 35)
+    FarmBtn.Position = UDim2.new(0, 15, 0, 50)
+    FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    FarmBtn.Text = "▶ START AUTO FARM"
+    FarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FarmBtn.TextSize = 13
+    FarmBtn.Font = Enum.Font.GothamBold
+    FarmBtn.BorderSizePixel = 0
+    FarmBtn.Parent = MainFrame
+    Instance.new("UICorner", FarmBtn).CornerRadius = UDim.new(0, 8)
+    FarmBtn.MouseButton1Click:Connect(function()
         Config.AutoFarm = not Config.AutoFarm
         if Config.AutoFarm then
             FarmBtn.Text = "■ STOP AUTO FARM"
@@ -393,12 +238,197 @@ UserInputService.InputBegan:Connect(function(input, gpe)
             FarmBtn.Text = "▶ START AUTO FARM"
             FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         end
+    end)
+
+    local SpeedLabel = Instance.new("TextLabel")
+    SpeedLabel.Text = "Steal Speed: " .. Config.StealSpeed .. " studs/s"
+    SpeedLabel.Size = UDim2.new(1, -30, 0, 20)
+    SpeedLabel.Position = UDim2.new(0, 15, 0, 95)
+    SpeedLabel.BackgroundTransparency = 1
+    SpeedLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    SpeedLabel.TextSize = 12
+    SpeedLabel.Font = Enum.Font.Gotham
+    SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+    SpeedLabel.Parent = MainFrame
+
+    local SpeedBar = Instance.new("Frame")
+    SpeedBar.Size = UDim2.new(1, -30, 0, 8)
+    SpeedBar.Position = UDim2.new(0, 15, 0, 120)
+    SpeedBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    SpeedBar.BorderSizePixel = 0
+    SpeedBar.Parent = MainFrame
+    Instance.new("UICorner", SpeedBar).CornerRadius = UDim.new(1, 0)
+
+    local SpeedFill = Instance.new("Frame")
+    SpeedFill.Size = UDim2.new((Config.StealSpeed - 1) / 499, 0, 1, 0)
+    SpeedFill.BackgroundColor3 = Color3.fromRGB(150, 100, 255)
+    SpeedFill.BorderSizePixel = 0
+    SpeedFill.Parent = SpeedBar
+    Instance.new("UICorner", SpeedFill).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+    SpeedBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local rel = math.clamp((input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X, 0, 1)
+            SpeedFill.Size = UDim2.new(rel, 0, 1, 0)
+            local val = math.floor(1 + 499 * rel)
+            Config.StealSpeed = val
+            SpeedLabel.Text = "Steal Speed: " .. val .. " studs/s"
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") and Config.TeleportMode == "Walk" then
+                char.Humanoid.WalkSpeed = val
+            end
+        end
+    end)
+
+    local ModeLabel = Instance.new("TextLabel")
+    ModeLabel.Text = "Режим движения:"
+    ModeLabel.Size = UDim2.new(1, -30, 0, 20)
+    ModeLabel.Position = UDim2.new(0, 15, 0, 145)
+    ModeLabel.BackgroundTransparency = 1
+    ModeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    ModeLabel.TextSize = 12
+    ModeLabel.Font = Enum.Font.Gotham
+    ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ModeLabel.Parent = MainFrame
+
+    local ModeButtons = {}
+    local function CreateModeButton(name, xPos, mode)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 95, 0, 30)
+        btn.Position = UDim2.new(0, xPos, 0, 170)
+        btn.BackgroundColor3 = Config.TeleportMode == mode and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(50, 50, 60)
+        btn.Text = name
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 12
+        btn.Font = Enum.Font.Gotham
+        btn.BorderSizePixel = 0
+        btn.Parent = MainFrame
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        table.insert(ModeButtons, {btn = btn, mode = mode})
+        btn.MouseButton1Click:Connect(function()
+            Config.TeleportMode = mode
+            for _, m in pairs(ModeButtons) do
+                m.btn.BackgroundColor3 = (m.mode == mode) and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(50, 50, 60)
+            end
+        end)
     end
+    CreateModeButton("TP", 15, "TP")
+    CreateModeButton("Tween", 115, "Tween")
+    CreateModeButton("Walk", 215, "Walk")
+
+    local RadiusLabel = Instance.new("TextLabel")
+    RadiusLabel.Text = "Радиус поиска: " .. Config.EggRadius .. " studs"
+    RadiusLabel.Size = UDim2.new(1, -30, 0, 20)
+    RadiusLabel.Position = UDim2.new(0, 15, 0, 215)
+    RadiusLabel.BackgroundTransparency = 1
+    RadiusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    RadiusLabel.TextSize = 12
+    RadiusLabel.Font = Enum.Font.Gotham
+    RadiusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    RadiusLabel.Parent = MainFrame
+
+    local RadiusBar = Instance.new("Frame")
+    RadiusBar.Size = UDim2.new(1, -30, 0, 8)
+    RadiusBar.Position = UDim2.new(0, 15, 0, 240)
+    RadiusBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    RadiusBar.BorderSizePixel = 0
+    RadiusBar.Parent = MainFrame
+    Instance.new("UICorner", RadiusBar).CornerRadius = UDim.new(1, 0)
+
+    local RadiusFill = Instance.new("Frame")
+    RadiusFill.Size = UDim2.new(Config.EggRadius / 2000, 0, 1, 0)
+    RadiusFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+    RadiusFill.BorderSizePixel = 0
+    RadiusFill.Parent = RadiusBar
+    Instance.new("UICorner", RadiusFill).CornerRadius = UDim.new(1, 0)
+
+    local draggingR = false
+    RadiusBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingR = true
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingR = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if draggingR and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local rel = math.clamp((input.Position.X - RadiusBar.AbsolutePosition.X) / RadiusBar.AbsoluteSize.X, 0, 1)
+            RadiusFill.Size = UDim2.new(rel, 0, 1, 0)
+            local val = math.floor(100 + 1900 * rel)
+            Config.EggRadius = val
+            RadiusLabel.Text = "Радиус поиска: " .. val .. " studs"
+        end
+    end)
+
+    local InfoLabel = Instance.new("TextLabel")
+    InfoLabel.Text = "Найдено яиц: 0 | Remote: " .. (StealRemote and StealRemote.Name or "не найден")
+    InfoLabel.Size = UDim2.new(1, -30, 0, 20)
+    InfoLabel.Position = UDim2.new(0, 15, 0, 255)
+    InfoLabel.BackgroundTransparency = 1
+    InfoLabel.TextColor3 = Color3.fromRGB(120, 220, 120)
+    InfoLabel.TextSize = 11
+    InfoLabel.Font = Enum.Font.Gotham
+    InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    InfoLabel.Parent = MainFrame
+
+    task.spawn(function()
+        while true do
+            task.wait(1)
+            if InfoLabel and InfoLabel.Parent then
+                local count = #GetEggs()
+                InfoLabel.Text = "Найдено яиц: " .. count .. " | Remote: " .. (StealRemote and StealRemote.Name or "не найден")
+            end
+        end
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            Config.AutoFarm = not Config.AutoFarm
+            if Config.AutoFarm then
+                FarmBtn.Text = "■ STOP AUTO FARM"
+                FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            else
+                FarmBtn.Text = "▶ START AUTO FARM"
+                FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            end
+        end
+    end)
+
+    print("[EggFarm] GUI успешно создан")
 end)
 
--- Уведомление
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Egg Farm загружен",
-    Text = "RightShift — вкл/выкл | Слайдер скорости работает",
-    Duration = 5
-})
+if not success then
+    warn("[EggFarm] ОШИБКА GUI: " .. tostring(err))
+    -- Резервный GUI в PlayerGui, если CoreGui недоступен
+    local backup = Instance.new("ScreenGui")
+    backup.Name = "EggFarmBackup"
+    backup.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, 200, 0, 60)
+    f.Position = UDim2.new(0, 20, 0, 20)
+    f.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    f.Parent = backup
+    local t = Instance.new("TextLabel")
+    t.Size = UDim2.new(1, 0, 1, 0)
+    t.BackgroundTransparency = 1
+    t.Text = "Ошибка GUI: " .. tostring(err):sub(1, 50)
+    t.TextColor3 = Color3.fromRGB(255, 255, 255)
+    t.TextSize = 11
+    t.Parent = f
+    print("[EggFarm] Создан резервный GUI — проверьте вывод ошибок")
+end
