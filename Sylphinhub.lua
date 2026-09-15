@@ -678,4 +678,73 @@ local function LoadPlaceTab()
     pl.Position = UDim2.new(0, 10, 0, 5)
     CreateToggle(pl, "Auto Place Eggs", 30, false, function(v) Config.AutoPlace = v end)
     CreateToggle(pl, "Auto Hatch Eggs", 65, false, function(v) Config.AutoHatch = v end)
-    CreateToggle(pl,
+    CreateToggle(pl, "Place All Eggs", 100, false, function(v) Config.PlaceAll = v end)
+end
+
+local function LoadSellTab()
+    ClearContent()
+    local sp = CreateSection(ContentScroll, "💰 Auto Sell", 250)
+    sp.Position = UDim2.new(0, 10, 0, 5)
+    CreateToggle(sp, "Auto Sell Pets", 30, false, function(v) Config.AutoSellPets = v end)
+    CreateToggle(sp, "Auto Sell Eggs", 65, false, function(v) Config.AutoSellEggs = v end)
+    CreateToggle(sp, "Never Sell Mutated", 100, true, function(v) Config.NeverSellMutated = v end)
+    CreateToggle(sp, "Never Sell Equipped", 135, true, function(v) Config.NeverSellEquipped = v end)
+    CreateSlider(sp, "Sell Interval", 170, 1, 60, 5, function(v) Config.SellPetInterval = v end)
+end
+
+local function LoadCombatTab()
+    ClearContent()
+    local sv = CreateSection(ContentScroll, "🛡 Survival", 200)
+    sv.Position = UDim2.new(0, 10, 0, 5)
+    CreateToggle(sv, "God Mode", 30, false, function(v) Config.GodMode = v end)
+    CreateToggle(sv, "Anti Trap", 65, false, function(v) Config.AntiTrap = v end)
+    CreateToggle(sv, "Anti Ragdoll", 100, false, function(v) Config.AntiRagdoll = v end)
+end
+
+local function LoadMiscTab()
+    ClearContent()
+    local mv = CreateSection(ContentScroll, "🏃 Movement", 200)
+    mv.Position = UDim2.new(0, 10, 0, 5)
+    CreateSlider(mv, "Speed", 30, 16, 500, 16, function(v) Config.Speed = v end)
+    CreateToggle(mv, "TPWalk", 75, false, function(v) Config.TPWalk = v end)
+    CreateToggle(mv, "Fly", 110, false, function(v) Config.Fly = v end)
+
+    local esp = CreateSection(ContentScroll, "👁 ESP", 150)
+    esp.Position = UDim2.new(0, 10, 0, 215)
+    CreateToggle(esp, "Egg ESP", 30, false, function(v) Config.EggESP = v end)
+    CreateToggle(esp, "Egg ESP Telepathy", 65, false, function(v) Config.EggESPTelepathy = v end)
+end
+
+local TabButtons = {}
+local function CreateTab(name, icon, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 36)
+    btn.Position = UDim2.new(0, 5, 0, #TabButtons * 40 + 5)
+    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    btn.Text = "  "..icon.."  "..name
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.Gotham
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.BorderSizePixel = 0
+    btn.Parent = Sidebar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    table.insert(TabButtons, {btn = btn, callback = callback})
+    btn.MouseButton1Click:Connect(function()
+        for _, t in pairs(TabButtons) do
+            t.btn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+            t.btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        btn.TextColor3 = Color3.fromRGB(150, 255, 150)
+        callback()
+    end)
+end
+
+CreateTab("STEAL", "🎯", LoadStealTab)
+CreateTab("PLACE", "🥚", LoadPlaceTab)
+CreateTab("SELL", "💰", LoadSellTab)
+CreateTab("SURVIVAL", "🛡", LoadCombatTab)
+CreateTab("MISC", "⚙", LoadMiscTab)
+
+LoadStealTab()
