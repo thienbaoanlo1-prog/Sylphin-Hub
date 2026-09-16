@@ -31,8 +31,8 @@ tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 -- BẢNG MENU CHÍNH
 local main = Instance.new("Frame", gui)
 main.Name = "MainFrame"
-main.Size = UDim2.new(0, 500, 0, 380)
-main.Position = UDim2.new(0.5, -250, 0.5, -190)
+main.Size = UDim2.new(0, 500, 0, 390)
+main.Position = UDim2.new(0.5, -250, 0.5, -195)
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 main.BorderSizePixel = 0
 main.Active = true
@@ -57,7 +57,7 @@ header.Size = UDim2.new(1, 0, 0, 45)
 header.BackgroundTransparency = 1
 
 local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -40, 0, 22)
+title.Size = UDim2.new(0, 100, 0, 22)
 title.Position = UDim2.new(0, 15, 0, 6)
 title.BackgroundTransparency = 1
 title.Text = "SylPhin"
@@ -67,7 +67,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 18
 
 local subtitle = Instance.new("TextLabel", header)
-subtitle.Size = UDim2.new(1, -40, 0, 16)
+subtitle.Size = UDim2.new(0, 140, 0, 16)
 subtitle.Position = UDim2.new(0, 15, 0, 26)
 subtitle.BackgroundTransparency = 1
 subtitle.Text = "Chon hub cua ban"
@@ -76,6 +76,22 @@ subtitle.TextXAlignment = Enum.TextXAlignment.Left
 subtitle.Font = Enum.Font.GothamMedium
 subtitle.TextSize = 12
 
+-- AVATAR ROBLOX CỦA NGƯỜI DÙNG
+local avatarImg = Instance.new("ImageLabel", header)
+avatarImg.Name = "UserAvatar"
+avatarImg.Size = UDim2.new(0, 34, 0, 34)
+avatarImg.Position = UDim2.new(0, 165, 0, 6)
+avatarImg.BackgroundTransparency = 1
+avatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. localPlayer.UserId .. "&w=150&h=150"
+
+local avatarCorner = Instance.new("UICorner", avatarImg)
+avatarCorner.CornerRadius = UDim.new(1, 0)
+
+local avatarStroke = Instance.new("UIStroke", avatarImg)
+avatarStroke.Color = Color3.fromRGB(255, 40, 40)
+avatarStroke.Thickness = 1.5
+
+-- NÚT ĐÓNG MENU
 local closeBtn = Instance.new("TextButton", header)
 closeBtn.Size = UDim2.new(0, 35, 0, 35)
 closeBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -133,7 +149,7 @@ shTabStroke.Thickness = 1
 
 -- KHUNG NỘI DUNG TỪNG TAB
 local scriptsFrame = Instance.new("ScrollingFrame", main)
-scriptsFrame.Size = UDim2.new(1, -20, 1, -85)
+scriptsFrame.Size = UDim2.new(1, -20, 1, -110)
 scriptsFrame.Position = UDim2.new(0, 10, 0, 80)
 scriptsFrame.BackgroundTransparency = 1
 scriptsFrame.BorderSizePixel = 0
@@ -146,7 +162,7 @@ local scriptsLayout = Instance.new("UIListLayout", scriptsFrame)
 scriptsLayout.Padding = UDim.new(0, 8)
 
 local serverHopFrame = Instance.new("ScrollingFrame", main)
-serverHopFrame.Size = UDim2.new(1, -20, 1, -85)
+serverHopFrame.Size = UDim2.new(1, -20, 1, -110)
 serverHopFrame.Position = UDim2.new(0, 10, 0, 80)
 serverHopFrame.BackgroundTransparency = 1
 serverHopFrame.BorderSizePixel = 0
@@ -157,6 +173,25 @@ serverHopFrame.Visible = false
 
 local shLayout = Instance.new("UIListLayout", serverHopFrame)
 shLayout.Padding = UDim.new(0, 10)
+
+-- DISCORD FOOTER PHÍA DƯỚI CÙNG MENU
+local discordBtn = Instance.new("TextButton", main)
+discordBtn.Size = UDim2.new(1, -20, 0, 22)
+discordBtn.Position = UDim2.new(0, 10, 1, -24)
+discordBtn.BackgroundTransparency = 1
+discordBtn.Text = "Discord: https://discord.gg/aYvWCqTTd"
+discordBtn.TextColor3 = Color3.fromRGB(255, 60, 60)
+discordBtn.Font = Enum.Font.GothamMedium
+discordBtn.TextSize = 11
+
+discordBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard("https://discord.gg/aYvWCqTTd")
+        discordBtn.Text = "Da copy link Discord vao Clipboard!"
+        task.wait(2)
+        discordBtn.Text = "Discord: https://discord.gg/aYvWCqTTd"
+    end
+end)
 
 -- CHUYỂN TAB LOGIC
 scriptsTabBtn.MouseButton1Click:Connect(function()
@@ -327,7 +362,7 @@ for _, v in ipairs(hubs) do
 end
 
 -- ==========================================
--- TAB 2: SERVER HOP LOGIC & UI (RED THEME)
+-- TAB 2: SERVER HOP LOGIC & UI (1 - 7 RANGE)
 -- ==========================================
 local maxPlayers = 1
 local autoDetectThreshold = 3
@@ -467,13 +502,13 @@ local function createSlider(titleText, minVal, maxVal, defaultVal, callback)
     end)
 end
 
--- SLIDER 1: MAX PLAYERS THRESHOLD
-createSlider("Max Players Threshold", 1, 10, maxPlayers, function(v)
+-- SLIDER 1: MAX PLAYERS THRESHOLD (1 ĐẾN 7)
+createSlider("Max Players Threshold", 1, 7, maxPlayers, function(v)
     maxPlayers = v
 end)
 
--- SLIDER 2: AUTO DETECT THRESHOLD
-createSlider("Auto Detect Threshold", 1, 10, autoDetectThreshold, function(v)
+-- SLIDER 2: AUTO DETECT THRESHOLD (1 ĐẾN 7)
+createSlider("Auto Detect Threshold", 1, 7, autoDetectThreshold, function(v)
     autoDetectThreshold = v
 end)
 
