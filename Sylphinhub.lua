@@ -1,434 +1,404 @@
--- Диагностика: почему меню не появляется
--- Проблема: ошибка в одной из строк выше ломает весь скрипт
--- Решение: безопасная версия с обработкой ошибок и печатью в консоль
-
--- ============================================================
--- ШАГ 1: ПРОВЕРКА ЭКЗЕКЬЮТОРА
--- ============================================================
-print("[EggFarm] Запуск...")
-
-if not game then
-    warn("[EggFarm] game не найден. Запустите в Roblox.")
-    return
-end
-
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local LocalPlayer = Players.LocalPlayer
 
-if not LocalPlayer then
-    warn("[EggFarm] LocalPlayer не найден. Подождите загрузки.")
-    return
-end
-print("[EggFarm] Экзекьютор OK. Игрок: " .. LocalPlayer.Name)
-
--- ============================================================
--- ШАГ 2: ОПРЕДЕЛЕНИЕ РОДИТЕЛЯ ДЛЯ GUI
--- ============================================================
-local GuiParent
-local function GetGuiParent()
-    local success, result = pcall(function()
-        return game:GetService("CoreGui")
-    end)
-    if success and result then return result end
-    return LocalPlayer:WaitForChild("PlayerGui")
-end
-GuiParent = GetGuiParent()
-print("[EggFarm] GUI родитель: " .. GuiParent:GetFullName())
-
--- ============================================================
--- ШАГ 3: КОНФИГ
--- ============================================================
-local Config = {
-    AutoFarm = false,
-    StealSpeed = 20,
-    MoveSpeed = 16,
-    TeleportMode = "TP",
-    EggRadius = 500,
-    RarityFilter = {}
+-- Config Server Hop
+local HopConfig = {
+    maxPlayers = 1,
+    autoDetectThreshold = 3,
+    autoDetectActive = false,
+    autoHopActive = false
 }
 
--- ============================================================
--- ШАГ 4: ПОИСК REMOTE
--- ============================================================
-local function FindRemote(name)
-    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
-        if (v:IsA("RemoteEvent") or v:IsA("RemoteFunction")) and v.Name:lower():find(name:lower()) then
-            return v
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CustomMenuUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 620, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -310, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = MainFrame
+
+-- Constraint hỗ trợ co giãn/thu phóng đồng bộ mọi thứ
+local AspectRatio = Instance.new("UIAspectRatioConstraint")
+AspectRatio.AspectRatio = 620 / 380
+AspectRatio.Parent = MainFrame
+
+-- Sidebar Container
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0.3, 0, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
+
+local SidebarList = Instance.new("UIListLayout")
+SidebarList.Padding = UDim.new(0, 4)
+SidebarList.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarList.Parent = Sidebar
+
+local SidebarPadding = Instance.new("UIPadding")
+SidebarPadding.PaddingTop = UDim.new(0, 12)
+SidebarPadding.PaddingLeft = UDim.new(0, 10)
+SidebarPadding.PaddingRight = UDim.new(0, 10)
+SidebarPadding.Parent = Sidebar
+
+-- Footer Profile Card (Hình 1)
+local ProfileCard = Instance.new("Frame")
+ProfileCard.Name = "ProfileCard"
+ProfileCard.Size = UDim2.new(0.3, -12, 0, 55)
+ProfileCard.Position = UDim2.new(0, 6, 1, -61)
+ProfileCard.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+ProfileCard.BorderSizePixel = 0
+ProfileCard.ZIndex = 5
+ProfileCard.Parent = MainFrame
+
+local ProfileCorner = Instance.new("UICorner")
+ProfileCorner.CornerRadius = UDim.new(0, 10)
+ProfileCorner.Parent = ProfileCard
+
+local AvatarImg = Instance.new("ImageLabel")
+AvatarImg.Size = UDim2.new(0, 36, 0, 36)
+AvatarImg.Position = UDim2.new(0, 10, 0.5, -18)
+AvatarImg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+AvatarImg.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+AvatarImg.ZIndex = 6
+AvatarImg.Parent = ProfileCard
+
+local AvatarCorner = Instance.new("UICorner")
+AvatarCorner.CornerRadius = UDim.new(1, 0)
+AvatarCorner.Parent = AvatarImg
+
+local NameLabel = Instance.new("TextLabel")
+NameLabel.Size = UDim2.new(1, -56, 0, 18)
+NameLabel.Position = UDim2.new(0, 52, 0, 10)
+NameLabel.BackgroundTransparency = 1
+NameLabel.Font = Enum.Font.GothamBold
+NameLabel.Text = LocalPlayer.DisplayName
+NameLabel.TextColor3 = Color3.fromRGB(230, 230, 240)
+NameLabel.TextSize = 13
+NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+NameLabel.ZIndex = 6
+NameLabel.Parent = ProfileCard
+
+local ExpiryLabel = Instance.new("TextLabel")
+ExpiryLabel.Size = UDim2.new(1, -56, 0, 16)
+ExpiryLabel.Position = UDim2.new(0, 52, 0, 28)
+ExpiryLabel.BackgroundTransparency = 1
+ExpiryLabel.Font = Enum.Font.Gotham
+ExpiryLabel.Text = "Till: 1 Jan 2026"
+ExpiryLabel.TextColor3 = Color3.fromRGB(140, 140, 160)
+ExpiryLabel.TextSize = 11
+ExpiryLabel.TextXAlignment = Enum.TextXAlignment.Left
+ExpiryLabel.ZIndex = 6
+ExpiryLabel.Parent = ProfileCard
+
+-- Container Nội Dung
+local ContentArea = Instance.new("Frame")
+ContentArea.Name = "ContentArea"
+ContentArea.Size = UDim2.new(0.7, 0, 1, 0)
+ContentArea.Position = UDim2.new(0.3, 0, 0, 0)
+ContentArea.BackgroundTransparency = 1
+ContentArea.Parent = MainFrame
+
+local ContentPadding = Instance.new("UIPadding")
+ContentPadding.PaddingTop = UDim.new(0, 15)
+ContentPadding.PaddingLeft = UDim.new(0, 15)
+ContentPadding.PaddingRight = UDim.new(0, 15)
+ContentPadding.PaddingBottom = UDim.new(0, 15)
+ContentPadding.Parent = ContentArea
+
+-- Quản lý Tab
+local Tabs = {}
+local CurrentTab = nil
+
+local function CreateTab(name, iconId)
+    local TabBtn = Instance.new("TextButton")
+    TabBtn.Size = UDim2.new(1, 0, 0, 36)
+    TabBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+    TabBtn.BorderSizePixel = 0
+    TabBtn.AutoButtonColor = false
+    TabBtn.Text = ""
+    TabBtn.Parent = Sidebar
+
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 6)
+    BtnCorner.Parent = TabBtn
+
+    -- Vạch tím chỉ báo Active (Hình 3)
+    local ActiveIndicator = Instance.new("Frame")
+    ActiveIndicator.Size = UDim2.new(0, 3, 0, 18)
+    ActiveIndicator.Position = UDim2.new(0, 0, 0.5, -9)
+    ActiveIndicator.BackgroundColor3 = Color3.fromRGB(138, 92, 246)
+    ActiveIndicator.BorderSizePixel = 0
+    ActiveIndicator.Visible = false
+    ActiveIndicator.Parent = TabBtn
+
+    local IndicatorCorner = Instance.new("UICorner")
+    IndicatorCorner.CornerRadius = UDim.new(1, 0)
+    IndicatorCorner.Parent = ActiveIndicator
+
+    local Icon = Instance.new("ImageLabel")
+    Icon.Size = UDim2.new(0, 18, 0, 18)
+    Icon.Position = UDim2.new(0, 12, 0.5, -9)
+    Icon.BackgroundTransparency = 1
+    Icon.Image = iconId or "rbxassetid://6031094678"
+    Icon.ImageColor3 = Color3.fromRGB(160, 160, 180)
+    Icon.Parent = TabBtn
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -40, 1, 0)
+    Title.Position = UDim2.new(0, 38, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.GothamMedium
+    Title.Text = name
+    Title.TextColor3 = Color3.fromRGB(160, 160, 180)
+    Title.TextSize = 13
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = TabBtn
+
+    local Page = Instance.new("ScrollingFrame")
+    Page.Size = UDim2.new(1, 0, 1, 0)
+    Page.BackgroundTransparency = 1
+    Page.Visible = false
+    Page.ScrollBarThickness = 2
+    Page.Parent = ContentArea
+
+    local PageList = Instance.new("UIListLayout")
+    PageList.Padding = UDim.new(0, 10)
+    PageList.SortOrder = Enum.SortOrder.LayoutOrder
+    PageList.Parent = Page
+
+    TabBtn.MouseButton1Click:Connect(function()
+        for _, t in pairs(Tabs) do
+            t.Btn.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+            t.Indicator.Visible = false
+            t.Title.TextColor3 = Color3.fromRGB(160, 160, 180)
+            t.Icon.ImageColor3 = Color3.fromRGB(160, 160, 180)
+            t.Page.Visible = false
         end
-    end
-    return nil
-end
 
-local StealRemote = FindRemote("StealEgg") or FindRemote("Steal") or FindRemote("PickupEgg") or FindRemote("CollectEgg")
-print("[EggFarm] StealRemote: " .. (StealRemote and StealRemote.Name or "не найден"))
-
--- ============================================================
--- ШАГ 5: ФУНКЦИИ ЯИЦ
--- ============================================================
-local function GetEggs()
-    local eggs = {}
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("Model") and (v.Name:find("Egg") or v.Name:find("Trứng")) then
-            if v:FindFirstChildWhichIsA("BasePart") then
-                table.insert(eggs, v)
-            end
-        end
-    end
-    return eggs
-end
-
-local function GetEggPosition(egg)
-    if egg.PrimaryPart then return egg.PrimaryPart.Position end
-    local part = egg:FindFirstChildWhichIsA("BasePart")
-    return part and part.Position or nil
-end
-
-local function GetEggRarity(egg)
-    return egg:GetAttribute("Rarity") or "Common"
-end
-
-local function FilterEgg(egg)
-    if #Config.RarityFilter == 0 then return true end
-    return table.find(Config.RarityFilter, GetEggRarity(egg)) ~= nil
-end
-
-local function GetNearestEgg()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
-    local myPos = char.HumanoidRootPart.Position
-    local best, bestDist = nil, Config.EggRadius
-    for _, egg in pairs(GetEggs()) do
-        if not FilterEgg(egg) then continue end
-        local pos = GetEggPosition(egg)
-        if pos then
-            local dist = (pos - myPos).Magnitude
-            if dist < bestDist then
-                best = egg
-                bestDist = dist
-            end
-        end
-    end
-    return best
-end
-
-local function MoveToEgg(egg)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local targetPos = GetEggPosition(egg)
-    if not targetPos then return end
-    if Config.TeleportMode == "TP" then
-        hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-    elseif Config.TeleportMode == "Tween" then
-        local dist = (targetPos - hrp.Position).Magnitude
-        local tw = TweenService:Create(hrp, TweenInfo.new(dist / Config.StealSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))})
-        tw:Play()
-        tw.Completed:Wait()
-    elseif Config.TeleportMode == "Walk" then
-        char.Humanoid.WalkSpeed = Config.StealSpeed
-        char.Humanoid:MoveTo(targetPos)
-    end
-end
-
--- ============================================================
--- ШАГ 6: ОСНОВНОЙ ЦИКЛ
--- ============================================================
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if Config.AutoFarm then
-            local egg = GetNearestEgg()
-            if egg then
-                MoveToEgg(egg)
-                if StealRemote then
-                    pcall(function() StealRemote:FireServer(egg) end)
-                end
-            end
-        end
-    end
-end)
-
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("Humanoid") then return end
-    if Config.AutoFarm and Config.TeleportMode == "Walk" then
-        char.Humanoid.WalkSpeed = Config.StealSpeed
-    elseif not Config.AutoFarm then
-        char.Humanoid.WalkSpeed = Config.MoveSpeed
-    end
-end)
-
--- ============================================================
--- ШАГ 7: СОЗДАНИЕ GUI (с защитой от ошибок)
--- ============================================================
-local success, err = pcall(function()
-    -- Удаляем старую версию, если есть
-    if GuiParent:FindFirstChild("EggFarmSpeed") then
-        GuiParent.EggFarmSpeed:Destroy()
-    end
-
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "EggFarmSpeed"
-    ScreenGui.Parent = GuiParent
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 340, 0, 280)
-    MainFrame.Position = UDim2.new(0.5, -170, 0.5, -140)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.Parent = ScreenGui
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
-
-    local TitleBar = Instance.new("Frame")
-    TitleBar.Size = UDim2.new(1, 0, 0, 40)
-    TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    TitleBar.BorderSizePixel = 0
-    TitleBar.Parent = MainFrame
-    Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 12)
-
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Text = "Egg Farm + Steal Speed"
-    TitleLabel.Size = UDim2.new(1, -60, 1, 0)
-    TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
-    TitleLabel.TextSize = 15
-    TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.Parent = TitleBar
-
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Text = "✕"
-    CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-    CloseBtn.Position = UDim2.new(1, -35, 0, 6)
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-    CloseBtn.TextSize = 14
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.BorderSizePixel = 0
-    CloseBtn.Parent = TitleBar
-    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-    CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
-    local FarmBtn = Instance.new("TextButton")
-    FarmBtn.Size = UDim2.new(1, -30, 0, 35)
-    FarmBtn.Position = UDim2.new(0, 15, 0, 50)
-    FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    FarmBtn.Text = "▶ START AUTO FARM"
-    FarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FarmBtn.TextSize = 13
-    FarmBtn.Font = Enum.Font.GothamBold
-    FarmBtn.BorderSizePixel = 0
-    FarmBtn.Parent = MainFrame
-    Instance.new("UICorner", FarmBtn).CornerRadius = UDim.new(0, 8)
-    FarmBtn.MouseButton1Click:Connect(function()
-        Config.AutoFarm = not Config.AutoFarm
-        if Config.AutoFarm then
-            FarmBtn.Text = "■ STOP AUTO FARM"
-            FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-        else
-            FarmBtn.Text = "▶ START AUTO FARM"
-            FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-        end
+        TabBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+        ActiveIndicator.Visible = true
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        Page.Visible = true
     end)
 
-    local SpeedLabel = Instance.new("TextLabel")
-    SpeedLabel.Text = "Steal Speed: " .. Config.StealSpeed .. " studs/s"
-    SpeedLabel.Size = UDim2.new(1, -30, 0, 20)
-    SpeedLabel.Position = UDim2.new(0, 15, 0, 95)
-    SpeedLabel.BackgroundTransparency = 1
-    SpeedLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    SpeedLabel.TextSize = 12
-    SpeedLabel.Font = Enum.Font.Gotham
-    SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    SpeedLabel.Parent = MainFrame
+    local tabData = {Btn = TabBtn, Indicator = ActiveIndicator, Title = Title, Icon = Icon, Page = Page}
+    table.insert(Tabs, tabData)
+    return Page, TabBtn
+end
 
-    local SpeedBar = Instance.new("Frame")
-    SpeedBar.Size = UDim2.new(1, -30, 0, 8)
-    SpeedBar.Position = UDim2.new(0, 15, 0, 120)
-    SpeedBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    SpeedBar.BorderSizePixel = 0
-    SpeedBar.Parent = MainFrame
-    Instance.new("UICorner", SpeedBar).CornerRadius = UDim.new(1, 0)
+-- Tạo các Tab theo Hình 2
+local CombatPage = CreateTab("Combat", "rbxassetid://6031094678")
+local MovementPage = CreateTab("Movement", "rbxassetid://6031097225")
+local VisualsPage = CreateTab("Visuals", "rbxassetid://6031094678")
+local RenderPage = CreateTab("Render", "rbxassetid://6031075929")
+local MiscPage = CreateTab("Misc", "rbxassetid://6034818372")
+local ServerHopPage = CreateTab("Server Hop", "rbxassetid://6034818372")
 
-    local SpeedFill = Instance.new("Frame")
-    SpeedFill.Size = UDim2.new((Config.StealSpeed - 1) / 499, 0, 1, 0)
-    SpeedFill.BackgroundColor3 = Color3.fromRGB(150, 100, 255)
-    SpeedFill.BorderSizePixel = 0
-    SpeedFill.Parent = SpeedBar
-    Instance.new("UICorner", SpeedFill).CornerRadius = UDim.new(1, 0)
+-- Mặc định chọn Tab Combat
+Tabs[1].Btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+Tabs[1].Indicator.Visible = true
+Tabs[1].Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Tabs[1].Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+Tabs[1].Page.Visible = true
+
+--- Component: Thanh Trượt Slider (Hình 5) từ 1-7
+local function CreateSlider(parent, text, min, max, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 50)
+    Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = parent
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Frame
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -20, 0, 20)
+    Label.Position = UDim2.new(0, 10, 0, 5)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.GothamMedium
+    Label.Text = text .. ": " .. tostring(default)
+    Label.TextColor3 = Color3.fromRGB(220, 220, 230)
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local SliderTrack = Instance.new("Frame")
+    SliderTrack.Size = UDim2.new(1, -20, 0, 6)
+    SliderTrack.Position = UDim2.new(0, 10, 0, 32)
+    SliderTrack.BackgroundColor3 = Color3.fromRGB(45, 45, 58)
+    SliderTrack.BorderSizePixel = 0
+    SliderTrack.Parent = Frame
+
+    local TrackCorner = Instance.new("UICorner")
+    TrackCorner.CornerRadius = UDim.new(1, 0)
+    TrackCorner.Parent = SliderTrack
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new((default - min)/(max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(138, 92, 246)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderTrack
+
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(1, 0)
+    FillCorner.Parent = SliderFill
+
+    local Knob = Instance.new("Frame")
+    Knob.Size = UDim2.new(0, 14, 0, 14)
+    Knob.Position = UDim2.new(1, -7, 0.5, -7)
+    Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Knob.BorderSizePixel = 0
+    Knob.Parent = SliderFill
+
+    local KnobCorner = Instance.new("UICorner")
+    KnobCorner.CornerRadius = UDim.new(1, 0)
+    KnobCorner.Parent = Knob
 
     local dragging = false
-    SpeedBar.InputBegan:Connect(function(input)
+    local function Update(input)
+        local pos = math.clamp((input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X, 0, 1)
+        local value = math.floor(min + ((max - min) * pos))
+        SliderFill.Size = UDim2.new((value - min)/(max - min), 0, 1, 0)
+        Label.Text = text .. ": " .. tostring(value)
+        callback(value)
+    end
+
+    SliderTrack.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            Update(input)
         end
     end)
+
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
+
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local rel = math.clamp((input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X, 0, 1)
-            SpeedFill.Size = UDim2.new(rel, 0, 1, 0)
-            local val = math.floor(1 + 499 * rel)
-            Config.StealSpeed = val
-            SpeedLabel.Text = "Steal Speed: " .. val .. " studs/s"
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") and Config.TeleportMode == "Walk" then
-                char.Humanoid.WalkSpeed = val
-            end
+            Update(input)
         end
     end)
+end
 
-    local ModeLabel = Instance.new("TextLabel")
-    ModeLabel.Text = "Режим движения:"
-    ModeLabel.Size = UDim2.new(1, -30, 0, 20)
-    ModeLabel.Position = UDim2.new(0, 15, 0, 145)
-    ModeLabel.BackgroundTransparency = 1
-    ModeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    ModeLabel.TextSize = 12
-    ModeLabel.Font = Enum.Font.Gotham
-    ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ModeLabel.Parent = MainFrame
+--- Component: Button / Toggle
+local function CreateButton(parent, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 42)
+    Btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    Btn.BorderSizePixel = 0
+    Btn.Font = Enum.Font.GothamBold
+    Btn.Text = text
+    Btn.TextColor3 = Color3.fromRGB(220, 220, 230)
+    Btn.TextSize = 12
+    Btn.Parent = parent
 
-    local ModeButtons = {}
-    local function CreateModeButton(name, xPos, mode)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 95, 0, 30)
-        btn.Position = UDim2.new(0, xPos, 0, 170)
-        btn.BackgroundColor3 = Config.TeleportMode == mode and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(50, 50, 60)
-        btn.Text = name
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextSize = 12
-        btn.Font = Enum.Font.Gotham
-        btn.BorderSizePixel = 0
-        btn.Parent = MainFrame
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        table.insert(ModeButtons, {btn = btn, mode = mode})
-        btn.MouseButton1Click:Connect(function()
-            Config.TeleportMode = mode
-            for _, m in pairs(ModeButtons) do
-                m.btn.BackgroundColor3 = (m.mode == mode) and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(50, 50, 60)
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Btn
+
+    Btn.MouseButton1Click:Connect(function()
+        callback(Btn)
+    end)
+    return Btn
+end
+
+-- Server Hop Logic
+local function HopServer()
+    local placeId = game.PlaceId
+    local servers = {}
+    local req = request or http_request or (syn and syn.request)
+    
+    if req then
+        local res = req({Url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(placeId))})
+        local body = HttpService:JSONDecode(res.Body)
+        if body and body.data then
+            for _, s in ipairs(body.data) do
+                if s.playing <= HopConfig.maxPlayers and s.id ~= game.JobId then
+                    table.insert(servers, s.id)
+                end
             end
-        end)
+        end
     end
-    CreateModeButton("TP", 15, "TP")
-    CreateModeButton("Tween", 115, "Tween")
-    CreateModeButton("Walk", 215, "Walk")
 
-    local RadiusLabel = Instance.new("TextLabel")
-    RadiusLabel.Text = "Радиус поиска: " .. Config.EggRadius .. " studs"
-    RadiusLabel.Size = UDim2.new(1, -30, 0, 20)
-    RadiusLabel.Position = UDim2.new(0, 15, 0, 215)
-    RadiusLabel.BackgroundTransparency = 1
-    RadiusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    RadiusLabel.TextSize = 12
-    RadiusLabel.Font = Enum.Font.Gotham
-    RadiusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    RadiusLabel.Parent = MainFrame
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(placeId, servers[math.random(1, #servers)], LocalPlayer)
+    else
+        TeleportService:Teleport(placeId, LocalPlayer)
+    end
+end
 
-    local RadiusBar = Instance.new("Frame")
-    RadiusBar.Size = UDim2.new(1, -30, 0, 8)
-    RadiusBar.Position = UDim2.new(0, 15, 0, 240)
-    RadiusBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    RadiusBar.BorderSizePixel = 0
-    RadiusBar.Parent = MainFrame
-    Instance.new("UICorner", RadiusBar).CornerRadius = UDim.new(1, 0)
+-- DỰNG TAB SERVER HOP (Hình 4)
+local ServerInfoLabel = Instance.new("TextLabel")
+ServerInfoLabel.Size = UDim2.new(1, 0, 0, 20)
+ServerInfoLabel.BackgroundTransparency = 1
+ServerInfoLabel.Font = Enum.Font.Gotham
+ServerInfoLabel.Text = "Current Server: " .. #Players:GetPlayers() .. " player(s)"
+ServerInfoLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+ServerInfoLabel.TextSize = 12
+ServerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+ServerInfoLabel.Parent = ServerHopPage
 
-    local RadiusFill = Instance.new("Frame")
-    RadiusFill.Size = UDim2.new(Config.EggRadius / 2000, 0, 1, 0)
-    RadiusFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-    RadiusFill.BorderSizePixel = 0
-    RadiusFill.Parent = RadiusBar
-    Instance.new("UICorner", RadiusFill).CornerRadius = UDim.new(1, 0)
-
-    local draggingR = false
-    RadiusBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingR = true
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingR = false
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if draggingR and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local rel = math.clamp((input.Position.X - RadiusBar.AbsolutePosition.X) / RadiusBar.AbsoluteSize.X, 0, 1)
-            RadiusFill.Size = UDim2.new(rel, 0, 1, 0)
-            local val = math.floor(100 + 1900 * rel)
-            Config.EggRadius = val
-            RadiusLabel.Text = "Радиус поиска: " .. val .. " studs"
-        end
-    end)
-
-    local InfoLabel = Instance.new("TextLabel")
-    InfoLabel.Text = "Найдено яиц: 0 | Remote: " .. (StealRemote and StealRemote.Name or "не найден")
-    InfoLabel.Size = UDim2.new(1, -30, 0, 20)
-    InfoLabel.Position = UDim2.new(0, 15, 0, 255)
-    InfoLabel.BackgroundTransparency = 1
-    InfoLabel.TextColor3 = Color3.fromRGB(120, 220, 120)
-    InfoLabel.TextSize = 11
-    InfoLabel.Font = Enum.Font.Gotham
-    InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    InfoLabel.Parent = MainFrame
-
-    task.spawn(function()
-        while true do
-            task.wait(1)
-            if InfoLabel and InfoLabel.Parent then
-                local count = #GetEggs()
-                InfoLabel.Text = "Найдено яиц: " .. count .. " | Remote: " .. (StealRemote and StealRemote.Name or "не найден")
-            end
-        end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        if input.KeyCode == Enum.KeyCode.RightShift then
-            Config.AutoFarm = not Config.AutoFarm
-            if Config.AutoFarm then
-                FarmBtn.Text = "■ STOP AUTO FARM"
-                FarmBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-            else
-                FarmBtn.Text = "▶ START AUTO FARM"
-                FarmBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-            end
-        end
-    end)
-
-    print("[EggFarm] GUI успешно создан")
+-- Thay nhập số bằng Thanh trượt 1-7 (Hình 5)
+CreateSlider(ServerHopPage, "Max Players Threshold", 1, 7, HopConfig.maxPlayers, function(val)
+    HopConfig.maxPlayers = val
 end)
 
-if not success then
-    warn("[EggFarm] ОШИБКА GUI: " .. tostring(err))
-    -- Резервный GUI в PlayerGui, если CoreGui недоступен
-    local backup = Instance.new("ScreenGui")
-    backup.Name = "EggFarmBackup"
-    backup.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(0, 200, 0, 60)
-    f.Position = UDim2.new(0, 20, 0, 20)
-    f.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-    f.Parent = backup
-    local t = Instance.new("TextLabel")
-    t.Size = UDim2.new(1, 0, 1, 0)
-    t.BackgroundTransparency = 1
-    t.Text = "Ошибка GUI: " .. tostring(err):sub(1, 50)
-    t.TextColor3 = Color3.fromRGB(255, 255, 255)
-    t.TextSize = 11
-    t.Parent = f
-    print("[EggFarm] Создан резервный GUI — проверьте вывод ошибок")
-end
+CreateSlider(ServerHopPage, "Auto Detect Threshold", 1, 7, HopConfig.autoDetectThreshold, function(val)
+    HopConfig.autoDetectThreshold = val
+end)
+
+CreateButton(ServerHopPage, "HOP SERVER NOW", function()
+    HopServer()
+end)
+
+local AutoDetectBtn = CreateButton(ServerHopPage, "AUTO DETECT HOP: DISABLED", function(btn)
+    HopConfig.autoDetectActive = not HopConfig.autoDetectActive
+    btn.Text = "AUTO DETECT HOP: " .. (HopConfig.autoDetectActive and "ENABLED" or "DISABLED")
+    btn.TextColor3 = HopConfig.autoDetectActive and Color3.fromRGB(138, 92, 246) or Color3.fromRGB(220, 220, 230)
+end)
+
+local AutoHopBtn = CreateButton(ServerHopPage, "AUTO HOP: DISABLED", function(btn)
+    HopConfig.autoHopActive = not HopConfig.autoHopActive
+    btn.Text = "AUTO HOP: " .. (HopConfig.autoHopActive and "ENABLED" or "DISABLED")
+    btn.TextColor3 = HopConfig.autoHopActive and Color3.fromRGB(138, 92, 246) or Color3.fromRGB(220, 220, 230)
+end)
+
+-- Vòng lặp kiểm tra Auto Hop
+task.spawn(function()
+    while task.wait(3) do
+        local currentCount = #Players:GetPlayers()
+        ServerInfoLabel.Text = "Current Server: " .. currentCount .. " player(s)"
+        
+        if HopConfig.autoDetectActive and currentCount >= HopConfig.autoDetectThreshold then
+            HopServer()
+        elseif HopConfig.autoHopActive then
+            HopServer()
+        end
+    end
+end)
