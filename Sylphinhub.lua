@@ -1,12 +1,10 @@
 -- ============================================================
--- SYLPHIN HUB - FIXED UI & SLIDE ANIMATION
+-- SYLPHIN HUB - FIXED UI (STATIC DISPLAY)
 -- ============================================================
 
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ScreenGui Root
@@ -15,7 +13,7 @@ ScreenGui.Name = "SylphinHubUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = (gethui and gethui()) or game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
--- Top Container (Chứa toàn bộ Menu)
+-- Main Window Container
 local MainContainer = Instance.new("Frame", ScreenGui)
 MainContainer.Name = "MainContainer"
 MainContainer.Size = UDim2.new(0, 600, 0, 380)
@@ -24,7 +22,7 @@ MainContainer.BackgroundTransparency = 1
 MainContainer.Active = true
 MainContainer.Draggable = true
 
--- Sidebar (Khung bên trái - Bật mặc định)
+-- Sidebar (Khung bên trái)
 local Sidebar = Instance.new("Frame", MainContainer)
 Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 180, 1, 0)
@@ -36,7 +34,7 @@ Sidebar.ZIndex = 5
 local SidebarCorner = Instance.new("UICorner", Sidebar)
 SidebarCorner.CornerRadius = UDim.new(0, 14)
 
--- Header Logo + Text "SYLPHIN" ở góc trên (Hình 3)
+-- Header Logo + Text "SYLPHIN"
 local HeaderFrame = Instance.new("Frame", Sidebar)
 HeaderFrame.Size = UDim2.new(1, 0, 0, 45)
 HeaderFrame.BackgroundTransparency = 1
@@ -67,7 +65,7 @@ TabContainer.BackgroundTransparency = 1
 local TabList = Instance.new("UIListLayout", TabContainer)
 TabList.Padding = UDim.new(0, 4)
 
--- Profile Footer ở góc dưới Sidebar (Tự động cập nhật ngày thực tế)
+-- Profile Footer dưới đáy Sidebar
 local ProfileCard = Instance.new("Frame", Sidebar)
 ProfileCard.Size = UDim2.new(1, -16, 0, 50)
 ProfileCard.Position = UDim2.new(0, 8, 1, -58)
@@ -95,7 +93,6 @@ NameLabel.TextColor3 = Color3.fromRGB(240, 240, 250)
 NameLabel.TextSize = 11
 NameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Cập nhật ngày tháng năm hiện tại tự động
 local ExpiryLabel = Instance.new("TextLabel", ProfileCard)
 ExpiryLabel.Size = UDim2.new(1, -48, 0, 14)
 ExpiryLabel.Position = UDim2.new(0, 46, 0, 25)
@@ -106,15 +103,13 @@ ExpiryLabel.TextColor3 = Color3.fromRGB(130, 135, 150)
 ExpiryLabel.TextSize = 10
 ExpiryLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Content Area (Khung bên phải có hiệu ứng trượt Slide)
+-- Content Area (Khung bên phải hiển thị cố định)
 local ContentArea = Instance.new("Frame", MainContainer)
 ContentArea.Name = "ContentArea"
-ContentArea.Size = UDim2.new(0, 0, 1, 0) -- Mặc định ẩn sau sidebar
-ContentArea.Position = UDim2.new(0, 180, 0, 0)
+ContentArea.Size = UDim2.new(0, 412, 1, 0)
+ContentArea.Position = UDim2.new(0, 188, 0, 0)
 ContentArea.BackgroundColor3 = Color3.fromRGB(16, 17, 23)
 ContentArea.BorderSizePixel = 0
-ContentArea.ClipsDescendants = true
-ContentArea.Visible = false
 ContentArea.ZIndex = 3
 
 local ContentCorner = Instance.new("UICorner", ContentArea)
@@ -126,33 +121,7 @@ ContentPadding.PaddingLeft = UDim.new(0, 14)
 ContentPadding.PaddingRight = UDim.new(0, 14)
 ContentPadding.PaddingBottom = UDim.new(0, 14)
 
--- Animation Logic Trượt Khung Nội Dung (Slide Out / Slide In)
-local isExpanded = false
-local function ToggleContent(expand)
-    if expand == nil then expand = not isExpanded end
-    isExpanded = expand
-
-    local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-    
-    if isExpanded then
-        ContentArea.Visible = true
-        TweenService:Create(ContentArea, tweenInfo, {
-            Size = UDim2.new(0, 410, 1, 0),
-            Position = UDim2.new(0, 188, 0, 0)
-        }):Play()
-    else
-        local tween = TweenService:Create(ContentArea, tweenInfo, {
-            Size = UDim2.new(0, 0, 1, 0),
-            Position = UDim2.new(0, 180, 0, 0)
-        })
-        tween:Play()
-        tween.Completed:Connect(function()
-            if not isExpanded then ContentArea.Visible = false end
-        end)
-    end
-end
-
--- Nút Toggle Bật/Tắt Toàn Bộ Menu
+-- Nút Toggle Bật/Tắt Menu
 local ToggleBtn = Instance.new("TextButton", ScreenGui)
 ToggleBtn.Size = UDim2.new(0, 80, 0, 30)
 ToggleBtn.Position = UDim2.new(0, 15, 0.4, 0)
@@ -172,13 +141,7 @@ tStroke.Thickness = 1.5
 local uiOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
     uiOpen = not uiOpen
-    if uiOpen then
-        MainContainer.Visible = true
-    else
-        ToggleContent(false)
-        task.wait(0.2)
-        MainContainer.Visible = false
-    end
+    MainContainer.Visible = uiOpen
 end)
 
 -- Quản lý Tabs
@@ -222,7 +185,7 @@ local function CreateTab(name, iconId, isScrollable)
     Page.BackgroundTransparency = 1
     Page.Visible = false
 
-    -- Fix lỗi cuộn trang: Khóa cuộn cho Home & Server Hop
+    -- Cấu hình cuộn trang
     if isScrollable then
         Page.ScrollBarThickness = 2
         Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -235,7 +198,7 @@ local function CreateTab(name, iconId, isScrollable)
     local PageList = Instance.new("UIListLayout", Page)
     PageList.Padding = UDim.new(0, 8)
 
-    TabBtn.MouseButton1Click:Connect(function()
+    local function Activate()
         for _, t in pairs(Tabs) do
             t.Btn.BackgroundColor3 = Color3.fromRGB(20, 21, 28)
             t.Indicator.Visible = false
@@ -249,23 +212,22 @@ local function CreateTab(name, iconId, isScrollable)
         Title.TextColor3 = Color3.fromRGB(255, 255, 255)
         Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
         Page.Visible = true
+    end
 
-        -- Kích hoạt hiệu ứng Slide Out khi chọn Tab
-        ToggleContent(true)
-    end)
+    TabBtn.MouseButton1Click:Connect(Activate)
 
-    local tabData = {Btn = TabBtn, Indicator = ActiveIndicator, Title = Title, Icon = Icon, Page = Page}
+    local tabData = {Btn = TabBtn, Indicator = ActiveIndicator, Title = Title, Icon = Icon, Page = Page, Activate = Activate}
     table.insert(Tabs, tabData)
     return Page
 end
 
--- Tạo 4 Tab (Home và Server Hop không thể kéo cuộn)
+-- Tạo 4 Tab (Home và Server Hop giữ cố định không cuộn)
 local HomePage = CreateTab("Home", "rbxassetid://6031075929", false)
 local ServerHopPage = CreateTab("Server Hop", "rbxassetid://6034818372", false)
 local ScriptsPage = CreateTab("Scripts", "rbxassetid://6031094678", true)
 local ConfigPage = CreateTab("Config", "rbxassetid://6031097225", false)
 
--- Component: Slider Trượt (1 - 7)
+-- Component: Slider
 local function CreateSlider(parent, text, min, max, default, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -6, 0, 48)
@@ -407,38 +369,5 @@ ServerInfoLabel.TextColor3 = Color3.fromRGB(180, 185, 200)
 ServerInfoLabel.TextSize = 11
 ServerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- ==================== TAB 3: SCRIPTS ====================
-local searchBarFrame = Instance.new("Frame", ScriptsPage)
-searchBarFrame.Size = UDim2.new(1, -6, 0, 32)
-searchBarFrame.BackgroundColor3 = Color3.fromRGB(22, 23, 30)
-Instance.new("UICorner", searchBarFrame).CornerRadius = UDim.new(0, 6)
-
-local searchInput = Instance.new("TextBox", searchBarFrame)
-searchInput.Size = UDim2.new(1, -20, 1, 0)
-searchInput.Position = UDim2.new(0, 10, 0, 0)
-searchInput.BackgroundTransparency = 1
-searchInput.PlaceholderText = "Search element..."
-searchInput.PlaceholderColor3 = Color3.fromRGB(100, 105, 120)
-searchInput.Text = ""
-searchInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-searchInput.Font = Enum.Font.GothamMedium
-searchInput.TextSize = 11
-searchInput.TextXAlignment = Enum.TextXAlignment.Left
-
--- ==================== TAB 4: CONFIG ====================
-local cfgInputFrame = Instance.new("Frame", ConfigPage)
-cfgInputFrame.Size = UDim2.new(1, -6, 0, 36)
-cfgInputFrame.BackgroundColor3 = Color3.fromRGB(22, 23, 30)
-Instance.new("UICorner", cfgInputFrame).CornerRadius = UDim.new(0, 6)
-
-local cfgNameBox = Instance.new("TextBox", cfgInputFrame)
-cfgNameBox.Size = UDim2.new(1, -20, 1, 0)
-cfgNameBox.Position = UDim2.new(0, 10, 0, 0)
-cfgNameBox.BackgroundTransparency = 1
-cfgNameBox.PlaceholderText = "Config Name..."
-cfgNameBox.PlaceholderColor3 = Color3.fromRGB(100, 105, 120)
-cfgNameBox.Text = "default"
-cfgNameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-cfgNameBox.Font = Enum.Font.GothamMedium
-cfgNameBox.TextSize = 11
-cfgNameBox.TextXAlignment = Enum.TextXAlignment.Left
+-- Mặc định chọn Tab Home khi khởi chạy
+Tabs[1].Activate()
